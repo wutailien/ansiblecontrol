@@ -1,0 +1,62 @@
+---
+- name: Deploy Nutanix Guest Tools (NGT)
+  hosts: w3
+  become: yes
+  tasks:
+    # ==========================================
+    # Step 1: 檢查光碟機是否已掛載 NGT ISO
+    # ==========================================
+    - name: 1. Check if NGT ISO is attached
+      ansible.builtin.command: blkid -L NUTANIX_TOOLS
+      register: iso_check
+      changed_when: false
+      # 如果找不到 NUTANIX_TOOLS 的標籤，就提早中斷任務報錯
+      failed_when: iso_check.rc != 0 
+
+    # ==========================================
+    # Step 2: 掛載光碟機到 /mnt
+    # ==========================================
+    - name: 2. Mount NGT CD-ROM to /mnt
+      ansible.builtin.command: mount /dev/sr0 /mnt
+      register: mount_result
+      changed_when: false
+      # 容錯處理：如果已經掛載了就不要報錯
+      failed_when: "mount_result.rc != 0 and 'already mounted' not in mount_result.stderr"
+
+    # ==========================================
+    # Step 3: 執行 Python 安裝腳本
+    # ==========================================
+    - name: 3. Execute NGT installation script
+      ansible.builtin.command: python /mnt/installer/linux/install_ngt.py --operation install
+      register: ngt_install
+      changed_when: ngt_install.rc == 0
+
+    # ==========================================
+    # Step 4: 養成好習慣，安裝完先解除掛載
+    # ==========================================
+    - name: 4. Unmount NGT CD-ROM
+      ansible.builtin.command: umount /mnt
+      changed_when: false
+      ignore_errors: yes
+
+    # ==========================================
+    # Step 5: 驗證 NGT Agent 是否成功安裝
+    # ==========================================
+    - name: 5. Verify nutanix-guest-agent is installed
+      # 使用 rpm -q 比 yum | grep 更乾淨且精準
+      ansible.builtin.command: rpm -q nutanix-guest-agent
+      register: verify_install
+      changed_when: false
+
+    - name: Print verification result
+      ansible.builtin.debug:
+        msg: "NGT 安裝成功！目前版本為: {{ verify_install.stdout }}"
+
+    # ==========================================
+    # Step 6: 重新開機套用設定
+    # ==========================================
+    - name: 6. Reboot the server
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by Ansible after NGT installation"
+        reboot_timeout: 600
+        post_reboot_delay: 30

@@ -1,0 +1,15 @@
+---
+- name: depoly new hosts
+  hosts: w3
+  remote_user: root
+  vars:
+    USER: readmi
+  vars_files:
+    - secret.txt
+  tasks:
+    - name: create user
+      ansible.builtin.user:
+        name: "{{ USER }}"
+        state: present
+        groups: wheel
+        password: "{{ readmi_PW|password_hash('sha512') }}"

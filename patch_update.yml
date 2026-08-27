@@ -1,0 +1,34 @@
+---
+- name: Apply OS Security Updates
+  hosts: w3
+  become: yes
+  tasks:
+    - name: 1. Apply only security-related updates via DNF
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        security: yes
+        # bugfix: yes 
+
+    - name: 2. Check if a reboot is required (e.g., Kernel update)
+      ansible.builtin.command: dnf needs-restarting -r
+      register: reboot_check
+      failed_when: false
+      # 當 dnf 回傳 1 時，代表有核心或 glibc 更新，需要重啟才能生效
+      changed_when: reboot_check.rc == 1
+
+    - name: 3. Reboot the server if required
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by Ansible for security updates"
+        reboot_timeout: 600       # 最長等待 10 分鐘，超時則視為任務失敗
+        post_reboot_delay: 30     # 開機後多等 30 秒，確保各項服務完全啟動
+      when: reboot_check.rc == 1
+
+    - name: 4. Execute uname -r to get kernel version
+      ansible.builtin.command: uname -r
+      register: kernel_version
+      changed_when: false         
+
+    - name: 5. Print the current kernel version
+      ansible.builtin.debug:
+        msg: "核心版本為：{{ kernel_version.stdout }}"

@@ -1,0 +1,46 @@
+---
+- name: Deploy GCB and VANS Agents
+  hosts: w3
+  become: yes
+  vars:
+    shenwang_server_ip: "10.117.213.146"
+    wm7_dir: "/home/WM7"
+    wm7_binary_name: "WM7LinuxLite_{{ shenwang_server_ip }}"
+  vars_files: 
+    - LinuxMakeCron.sh
+  tasks:
+    - name: 1. Ensure WM7 directory exists
+      ansible.builtin.file:
+        path: "{{ wm7_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: 2. Copy and rename WM7LinuxLite binary to target
+      ansible.builtin.copy:
+        src: /home/readmi/rxe-agent-2.4.0.std.linux-amd64
+        dest: "{{ wm7_dir }}"
+        mode: '0755'
+
+    - name: 3. Execute asset reporting manually (First time run)
+      ansible.builtin.command:
+        cmd: "./run.sh"
+        chdir: "{{ wm7_dir }}/rxe-agent-2.4.0.std.linux-amd64"
+      register: report_result
+      changed_when: "'已回傳完成' in report_result.stdout"
+      #ignore_errors: yes
+
+    - name: Ensure RPXSrv is active (running) and enabled
+      ansible.builtin.systemd:
+        name: RPXSrv
+        state: started
+        enabled: yes
+
+#    - name: 4. Ensure crontab job for automatic reporting is set
+#      ansible.builtin.cron:
+#        name: "Shenwang LinuxLite Auto Report"
+#        special_time: reboot
+#        job: "{{ wm7_dir }}/{{ wm7_binary_name }} -loop -skipgcb"
+#        user: root
+#        state: present
+
+

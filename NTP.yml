@@ -1,0 +1,33 @@
+---
+- name: Setup NTP (Chrony) Configuration
+  hosts: w3
+  become: yes
+  vars:
+    ntp_server_ip: "10.118.2.4"
+
+  tasks:
+    - name: 1. Ensure chrony is installed
+      ansible.builtin.dnf:
+        name: chrony
+        state: present
+
+    - name: 2. Configure NTP server in chrony.conf
+      ansible.builtin.lineinfile:
+        path: /etc/chrony.conf
+        regexp: '^(pool|server)'
+        line: "server {{ ntp_server_ip }} iburst"
+        state: present
+        backup: yes
+      notify: Restart chronyd
+
+    - name: 3. Ensure chronyd is running and enabled
+      ansible.builtin.systemd:
+        name: chronyd
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart chronyd
+      ansible.builtin.systemd:
+        name: chronyd
+        state: restarted

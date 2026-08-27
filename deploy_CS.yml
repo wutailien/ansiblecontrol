@@ -1,0 +1,82 @@
+---
+- name: Deploy and Configure CrowdStrike Falcon Sensor
+  hosts: w3
+  become: yes
+  vars:
+    cs_installer_filepath: "/root/falcon-sensor-7.38.0-19102.el9.x86_64.rpm"
+    cs_cid: "E638E4D2343B45B885BC79BB037C655A-0D" 
+
+  tasks:
+    - name: 0. Copy CrowdStrike Sensor RPM to target
+      ansible.builtin.copy:
+        src: "{{ cs_installer_filepath }}"
+        dest: "{{ cs_installer_filepath }}"
+        mode: '0644'
+
+    # ==========================================
+    # Step 1: 安裝 Sensor RPM
+    # ==========================================
+    - name: 1. Install CrowdStrike Sensor via DNF
+      ansible.builtin.dnf:
+        name: "{{ cs_installer_filepath }}"
+        state: present
+        disable_gpg_check: yes
+
+    - name: Check current CID status
+      ansible.builtin.command: /opt/CrowdStrike/falconctl -g --cid
+      register: cid_status
+      failed_when: false
+      changed_when: false
+
+    - name: 6. Ensure falcon-sensor is started and enabled
+      ansible.builtin.systemd:
+        name: falcon-sensor
+        state: stopped
+        
+    # ==========================================
+    # Step 2~4: 寫入各項設定 (僅在未設定時執行)
+    # ==========================================
+    - name: 2. Set CrowdStrike CID
+      ansible.builtin.command: /opt/CrowdStrike/falconctl -s -f --cid={{ cs_cid }}
+      when: cid_status.rc != 0 or 'is not set' in cid_status.stderr
+    - name: 3. Set Proxy and Tags
+      ansible.builtin.command: /opt/CrowdStrike/falconctl -s --aph=rhapp.ntuh.gov.tw --app=3128 --tags="NTUH"
+      when: cid_status.rc != 0 or 'is not set' in cid_status.stderr
+    - name: 4. Disable APD (Proxy Disable feature)2
+      ansible.builtin.command: /opt/CrowdStrike/falconctl -s --apd=FALSE
+      when: cid_status.rc != 0 or 'is not set' in cid_status.stderr
+    # ==========================================
+    # Step 5: 查詢並印出設定值
+    # ==========================================
+    - name: 5. Get current configurations
+      ansible.builtin.command: /opt/CrowdStrike/falconctl -g --app --tags --cid
+      register: cs_config_check
+      changed_when: false
+
+    - name: Print current configurations
+      ansible.builtin.debug:
+        var: cs_config_check.stdout_lines
+
+    # ==========================================
+    # Step 6: 啟動服務並設定開機自啟
+    # ==========================================
+    - name: 6. Ensure falcon-sensor is started and enabled
+      ansible.builtin.systemd:
+        name: falcon-sensor
+        state: started
+        enabled: yes
+
+    # ==========================================
+    # Step 7: 檢查並印出服務狀態
+    # ==========================================
+    - name: 7. Check falcon-sensor service status
+      ansible.builtin.command: systemctl is-active falcon-sensor
+      register: cs_service_status
+      changed_when: false
+
+    - name: Print falcon-sensor status
+      ansible.builtin.debug:
+        msg: "Falcon Sensor 服務狀態: {{ cs_service_status.stdout }}"
+
+
+

@@ -1,0 +1,22 @@
+---
+- name: Batch Register Hosts to Red Hat Satellite
+  hosts: w3
+  tasks:
+    - name: Ensure subscription-manager is installed 
+      ansible.builtin.dnf:
+        name: subscription-manager
+        state: present
+
+    - name: Install Red Hat Satellite CA Certificate
+      ansible.builtin.dnf:
+        name: "http://satellite.ntuh.gov.tw/pub/katello-ca-consumer-latest.noarch.rpm"
+        state: present
+        disable_gpg_check: yes
+
+    - name: Register system to Red Hat Satellite
+      community.general.redhat_subscription:
+        state: present
+        server_hostname: "satellite.ntuh.gov.tw"
+        org_id: "Default_Organization"
+        activationkey: "RHEL"
+        force_register: no
