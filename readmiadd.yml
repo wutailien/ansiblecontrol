@@ -1,7 +1,8 @@
 ---
 - name: depoly new hosts
-  hosts: w3
-  remote_user: root
+  hosts: proxy
+  remote_user: tailien
+  become: true
   vars:
     USER: readmi
   vars_files:

@@ -1,0 +1,76 @@
+---
+- name: 部署神網 (WM7) LinuxLite 免安裝版資產自動回報服務
+  hosts: logcollector
+  become: yes
+  vars:
+    wm7_server_ip: "10.117.213.146"
+    wm7_dir: "/home/WM7"
+    wm7_binary: "WM7LinuxLite_{{ wm7_server_ip }}"
+
+  tasks:
+    - name: 1. 建立 /home/WM7 目錄
+      ansible.builtin.file:
+        path: "{{ wm7_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: 2. 從 /root 複製 WM7LinuxLite 到 /home/WM7 並自動更名與賦權
+      ansible.builtin.copy:
+        src: /root/WM7LinuxLite_10.117.213.146
+        dest: "{{ wm7_dir }}/{{ wm7_binary }}"
+        owner: root
+        group: root
+        mode: '0755'
+        # 若檔案位在「被控端主機」的 /root，請將下一行註解取消：
+        # remote_src: yes
+
+    - name: 3. 從 /root 複製 LinuxMakeCron.sh 到 /home/WM7 並賦權
+      ansible.builtin.copy:
+        src: /root/LinuxMakeCron.sh
+        dest: "{{ wm7_dir }}/LinuxMakeCron.sh"
+        owner: root
+        group: root
+        mode: '0755'
+        # 若檔案位在「被控端主機」的 /root，請將下一行註解取消：
+        # remote_src: yes
+
+    - name: 4. 自動替換 LinuxMakeCron.sh 內的執行檔檔名
+      ansible.builtin.replace:
+        path: "{{ wm7_dir }}/LinuxMakeCron.sh"
+        regexp: 'WM7LinuxLite_\S+|WM7LinuxLite'
+        replace: "{{ wm7_binary }}"
+
+    - name: 5. 測試執行第一次資產回報 (單次執行)
+      ansible.builtin.command:
+        cmd: "./{{ wm7_binary }}"
+        chdir: "{{ wm7_dir }}"
+      register: wm7_first_run
+      changed_when: true
+
+    - name: 顯示第一次資產回報結果
+      ansible.builtin.debug:
+        var: wm7_first_run.stdout_lines
+
+    - name: 6. 檢查系統 Crontab 是否已存在排程
+      ansible.builtin.shell: crontab -u root -l 2>/dev/null | grep "{{ wm7_binary }}"
+      register: wm7_cron_check
+      failed_when: false
+      changed_when: false
+
+    - name: 7. 執行 LinuxMakeCron.sh 建立 Crontab 排程 (若尚未建立)
+      ansible.builtin.command:
+        cmd: "./LinuxMakeCron.sh"
+        chdir: "{{ wm7_dir }}"
+      when: wm7_cron_check.rc != 0
+
+    - name: 8. 確認最終 Root Crontab 排程列表
+      ansible.builtin.command:
+        cmd: crontab -u root -l
+      register: crontab_list
+      changed_when: false
+
+    - name: 顯示目前排程清單
+      ansible.builtin.debug:
+        var: crontab_list.stdout_lines

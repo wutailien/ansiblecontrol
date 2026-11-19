@@ -1,6 +1,6 @@
 ---
 - name: Deploy and Configure CrowdStrike Falcon Sensor
-  hosts: w3
+  hosts: logcollector
   become: yes
   vars:
     cs_installer_filepath: "/root/falcon-sensor-7.38.0-19102.el9.x86_64.rpm"

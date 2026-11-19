@@ -1,0 +1,112 @@
+---
+- name: Configure RHEL 9 Disk Partitions and Mount Options for GCB Compliance
+  hosts: 10.118.202.21
+  become: yes
+  vars:
+    # 安全開關：必須顯式設定為 true 才會執行建立與變更動作
+    gcb_partition_automation_enabled: false
+
+    # LVM Volume Group 名稱
+    vg_name: "rhel"
+
+    # 根據 TWGCB 規範與建議規劃的 LV 與掛載點設定
+    gcb_logical_volumes:
+      - name: "var"
+        mountpoint: "/var"
+        size: "12G"
+        opts: "defaults"
+      - name: "var_tmp"
+        mountpoint: "/var/tmp"
+        size: "2G"
+        opts: "defaults,nodev,nosuid,noexec"
+      - name: "var_log"
+        mountpoint: "/var/log"
+        size: "10G"
+        opts: "defaults,nodev,nosuid,noexec"
+      - name: "var_log_audit"
+        mountpoint: "/var/log/audit"
+        size: "3G"
+        opts: "defaults,nodev,nosuid,noexec"
+      - name: "tmp"
+        mountpoint: "/tmp"
+        size: "8G"
+        opts: "defaults,nodev,nosuid,noexec"
+      - name: "home"
+        mountpoint: "/home"
+        size: "15G"
+        opts: "defaults,nodev"
+
+  pre_tasks:
+    - name: Check if automation safety switch is enabled
+      ansible.builtin.assert:
+        that:
+          - gcb_partition_automation_enabled == true
+        fail_msg: >
+          [ERROR] GCB disk partition automation is disabled by safety switch!
+          Please review the target host disk layout and run with:
+          ansible-playbook gcb_disk_setup.yml --extra-vars "gcb_partition_automation_enabled=true"
+
+    - name: Ensure required packages are installed
+      ansible.builtin.dnf:
+        name:
+          - xfsprogs
+          - rsync
+        state: present
+
+  tasks:
+    - name: Create Logical Volumes in VG
+      ansible.builtin.lvol:
+        vg: "{{ vg_name }}"
+        lv: "{{ item.name }}"
+        size: "{{ item.size }}"
+        state: present
+      loop: "{{ gcb_logical_volumes }}"
+
+    - name: Create XFS filesystem on new Logical Volumes
+      ansible.builtin.filesystem:
+        fstype: xfs
+        dev: "/dev/mapper/{{ vg_name }}-{{ item.name }}"
+        resizefs: yes
+      loop: "{{ gcb_logical_volumes }}"
+
+    - name: Ensure mountpoint directories exist
+      ansible.builtin.file:
+        path: "{{ item.mountpoint }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop: "{{ gcb_logical_volumes }}"
+
+    - name: Configure mount points in /etc/fstab with security options
+      ansible.builtin.mount:
+        path: "{{ item.mountpoint }}"
+        src: "/dev/mapper/{{ vg_name }}-{{ item.name }}"
+        fstype: xfs
+        opts: "{{ item.opts }}"
+        state: mounted
+      loop: "{{ gcb_logical_volumes }}"
+
+    - name: Fix specific permissions for /tmp and /var/tmp (Sticky bit 1777)
+      ansible.builtin.file:
+        path: "{{ item.mountpoint }}"
+        state: directory
+        mode: '1777'
+      loop: "{{ gcb_logical_volumes }}"
+      when: item.mountpoint in ['/tmp', '/var/tmp']
+
+    - name: Restore SELinux security contexts for mount points
+      ansible.builtin.command:
+        cmd: "restorecon -RFv {{ item.mountpoint }}"
+      loop: "{{ gcb_logical_volumes }}"
+      changed_when: true
+
+    - name: Verify fstab configuration using findmnt
+      ansible.builtin.command:
+        cmd: "findmnt --verify"
+      register: fstab_verify
+      changed_when: false
+
+    - name: Display fstab verification results
+      ansible.builtin.debug:
+        msg: "{{ fstab_verify.stdout_lines }}"

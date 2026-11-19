@@ -1,7 +1,8 @@
 ---
 - name: Apply OS Security Updates
-  hosts: w3
+  hosts: iportal
   become: yes
+  remote_user: tailien
   tasks:
     - name: 1. Apply only security-related updates via DNF
       ansible.builtin.dnf:

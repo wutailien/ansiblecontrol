@@ -1,15 +1,20 @@
 ---
 - name: depoly new hosts
-  hosts: w3
+  hosts: 10.117.221.64
   remote_user: readmi
-  vars:
-    USER: fet-riva
+  become: true
   vars_files:
     - secret.txt
   tasks:
     - name: create user
       ansible.builtin.user:
-        name: "{{ USER }}"
+        name: "{{ item }}"
         state: present
+
         groups: wheel
         password: "{{ USER_PW|password_hash('sha512') }}"
+      loop:  
+        - bttech-yichung
+        - bttech-peilun-ngcm
+        - bttech-adam
+

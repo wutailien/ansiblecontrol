@@ -1,6 +1,7 @@
 ---
 - name: Deploy Nutanix Guest Tools (NGT)
-  hosts: w3
+  remote_user: readmi
+  hosts: logcollector
   become: yes
   tasks:
     # ==========================================
@@ -55,8 +56,8 @@
     # ==========================================
     # Step 6: 重新開機套用設定
     # ==========================================
-    - name: 6. Reboot the server
-      ansible.builtin.reboot:
-        msg: "Reboot initiated by Ansible after NGT installation"
-        reboot_timeout: 600
-        post_reboot_delay: 30
+    #- name: 6. Reboot the server
+    #  ansible.builtin.reboot:
+    #    msg: "Reboot initiated by Ansible after NGT installation"
+    #    reboot_timeout: 600
+    #    post_reboot_delay: 30
