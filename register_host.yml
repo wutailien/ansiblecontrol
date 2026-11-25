@@ -1,6 +1,6 @@
 ---
 - name: Batch Register Hosts to Red Hat Satellite
-  hosts: 10.118.2.22
+  hosts: hmcapp
   tasks:
     - name: Ensure subscription-manager is installed 
       ansible.builtin.dnf:

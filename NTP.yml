@@ -1,6 +1,6 @@
 ---
 - name: Setup NTP (Chrony) Configuration
-  hosts: logcollector
+  hosts: hmcapp
   become: yes
   vars:
     ntp_server_ip: "10.118.2.4"

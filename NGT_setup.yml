@@ -1,7 +1,7 @@
 ---
 - name: Deploy Nutanix Guest Tools (NGT)
   remote_user: readmi
-  hosts: logcollector
+  hosts: hmcapp
   become: yes
   tasks:
     # ==========================================

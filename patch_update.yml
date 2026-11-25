@@ -1,15 +1,16 @@
 ---
 - name: Apply OS Security Updates
-  hosts: iportal
+  hosts: hmcapp
   become: yes
-  remote_user: tailien
+  remote_user: readmi
   tasks:
-    - name: 1. Apply only security-related updates via DNF
+    - name: 1. Refresh cache and apply security & bugfix updates
       ansible.builtin.dnf:
         name: '*'
         state: latest
         security: yes
-        # bugfix: yes 
+        bugfix: yes 
+        update_cache: yes
 
     - name: 2. Check if a reboot is required (e.g., Kernel update)
       ansible.builtin.command: dnf needs-restarting -r

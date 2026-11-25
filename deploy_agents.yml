@@ -1,6 +1,6 @@
 ---
 - name: Deploy GCB
-  hosts: logcollector
+  hosts: hmcapp
   become: yes
   vars:
     shenwang_server_ip: "10.117.213.146"

@@ -1,6 +1,6 @@
 ---
 - name: 部署神網 (WM7) LinuxLite 免安裝版資產自動回報服務
-  hosts: logcollector
+  hosts: hmcapp
   become: yes
   vars:
     wm7_server_ip: "10.117.213.146"
